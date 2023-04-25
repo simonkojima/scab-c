@@ -7,16 +7,13 @@
 #include <string.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <windows.h>
 #include <math.h>
-//#include <random>
 #include "portaudio.h"
 #include "./dr_wav.h"
 
-
 #define ENTRIG 0
-#define FS 44100
-#define FRAMES_PER_BUFFER 48
 
 using namespace std;
 
@@ -26,9 +23,7 @@ using namespace std;
 #endif
 
 void add_stim(float* y, float* stim, int N) {
-	cout << N << endl;
 	for (int i = 0; i < N; i++) {
-		cout << i << endl;
 		*(y + i) += *(stim + i);
 	}
 }
@@ -80,71 +75,64 @@ siSequencer::~siSequencer(){
 }
 
 void siSequencer::load_csv(const char* filename, int Fs) {
-	cout << "load csv" << endl;
 	std::ifstream ifs;
-	cout << "file opening ..." << endl;
 	ifs.open(filename);
-	cout << "file was opened" << endl;
 
 	this->Fs = Fs;
 
 	char buf[256];
 	int linenum = 0;
 
-	while (ifs.getline(buf, sizeof(buf))) {
-		linenum++;
-	}
+	ifs.getline(buf, sizeof(buf));
+	linenum = (int)atof(buf);
+	
+	ifs.getline(buf, sizeof(buf));
+	this->n_ch = (int)atof(buf);
 
-	ifs.clear();
-	ifs.seekg(0, std::ios::beg);
+	int len_csv = linenum - 2;
 
-	this->csv_data = new float[linenum];
-
-	for (int i = 0; i < linenum; i++) {
+	this->csv_data = new float[len_csv];
+	
+	for (int i = 0; i < len_csv; i++) {
 		ifs.getline(buf, sizeof(buf));
 		this->csv_data[i] = (float)atof(buf);
 	}
 
-	this->n_ch = (int)this->csv_data[0];
-	this->csv_data = &(this->csv_data[1]);
-	linenum--;
-	this->N = linenum / 4;
+	this->N = (int)(len_csv / 4);
+	
 }
 
 void siSequencer::gen_array(float** tones, float* len_tones) {
 	// unit of len_tones : seconds
 
-	float* t_csv = new float[N];
-	int* ch_csv = new int[N];
-	int* stim_csv = new int[N];
-	int* trig_csv = new int[N];
-	
-	cout << "All array was created" << endl;
+	float* t_csv = new float[this->N];
+	int* ch_csv = new int[this->N];
+	int* stim_csv = new int[this->N];
+	int* trig_csv = new int[this->N];
 
 	int idx;
-	for (int i = 0; i < N; i++) {
+	for (int i = 0; i < this->N; i++) {
 		idx = i * 4;
 		t_csv[i] = this->csv_data[idx++];
 		ch_csv[i] = this->csv_data[idx++];
 		stim_csv[i] = this->csv_data[idx++];
 		trig_csv[i] = this->csv_data[idx];
 	}
+	
 
-	this->csv_data = --this->csv_data;
 	delete [] this->csv_data;
 
 	int Fs = this->Fs;
 	int n_ch = this->n_ch;
+	
 
 	//float** y_mat = new float* [n_ch];
 	float** y_mat = (float**)malloc(sizeof(float*) * n_ch);
-	cout << "y_mat was created." << endl;
 
-	int n_stim = imax(stim_csv, N) + 1;
-	this->time = abs_fmax(t_csv, N) + abs_fmax(len_tones, n_stim);
+	int n_stim = imax(stim_csv, this->N) + 1;
+	this->time = abs_fmax(t_csv, this->N) + abs_fmax(len_tones, n_stim);
 
 	int n_samples = (this->time + 10) * Fs;
-	cout << "n_samples : " << n_samples << endl;
 
 	//--------------
 	// y
@@ -156,19 +144,12 @@ void siSequencer::gen_array(float** tones, float* len_tones) {
 			y_mat[i][j] = 0;
 		}
 	}
-	
-	cout << "here" << endl;
 
-	for (int i = 0; i < N; i++) {
-		cout << i << endl;
+	for (int i = 0; i < this->N; i++) {
 		idx = (int)(t_csv[i] * Fs);
-		cout << idx << endl;
-		cout << "n_samples : " << len_tones[stim_csv[i]]*Fs << endl;
 		add_stim(&(y_mat[ch_csv[i]][idx]), tones[stim_csv[i]], (int)(len_tones[stim_csv[i]] * Fs));
 	}
 	
-	cout << "y was created" << endl;
-
 
 	//--------------
 	// trig
@@ -190,7 +171,7 @@ void siSequencer::gen_array(float** tones, float* len_tones) {
 	}
 
 	float max_amp = abs_fmax(max_ch, n_ch);
-	if (max_amp >= 1.0) {
+	if (max_amp > 1.0) {
 		std::cout << "Warning : amplitude exceeds 1, max amplitude : " << max_amp << std::endl;
 	}
 
@@ -246,7 +227,18 @@ static int dsp(const void *inputBuffer,
 	return 0;
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
+	
+	char* audio_data_csv = argv[1];
+	char* audio_files_csv = argv[2];
+	int Fs = atoi(argv[3]); 
+	int frames_per_buffer = atoi(argv[4]);
+	
+	cout << "Audio Data CSV file name : " << audio_data_csv << endl;
+	cout << "Audio Files CSV file name : " << audio_files_csv << endl;
+	cout << "Fs : " << Fs << endl;
+	cout << "Frames per buffer : " << frames_per_buffer << endl;
+	//cout << frames_per_buffer << endl;
 
 #if ENTRIG == 0
 	int trig = 0;
@@ -278,61 +270,40 @@ int main(void) {
 	//-------------------------------------------------------------------------------------------------
 
 #endif
-	//-----------------------------------------------------------
-	// generate tones
-
-	/*
-	float freq[2] = { 1000, 1200 };
-	float duration[2] = {0.2, 0.2};
-	siTone tone[2];
-	for (int i = 0; i < 2; i++) {
-		tone[i].setFs(Fs);
-		tone[i].genSineTone(freq[i], duration[i], 1, 0);
-		tone[i].applyFade(0.01);
-	}
-
-	float** tones = new float*[2];
-	for (int i = 0; i < 2; i++) {
-		tones[i] = tone[i].get();
-	}
-	*/
-	
 	
 	//-----------------------------------------------------------
 	// read wav file
 
 	unsigned int channels;
 	unsigned int sampleRate;
-	
-	int n_stim = 2;
+
+	std::ifstream ifs;
+	ifs.open(audio_files_csv);
+	char buf[512];
+	ifs.getline(buf, sizeof(buf));
+	int n_stim = (int)atof(buf);
 
 	drwav_uint64* n_samples = new drwav_uint64[n_stim];
 	float* len_tones = new float[n_stim];
 	float** wav_data = new float*[n_stim];
-	const char** filename = new const char*[256];
-	filename[0] = { "1000.wav" };
-	filename[1] = { "1200.wav" };
-	
+	char filename[n_stim][256];
 
 	for (int i = 0; i < n_stim; i++) {
-		wav_data[i] = drwav_open_file_and_read_pcm_frames_f32(filename[i], &channels, &sampleRate, &n_samples[i], NULL);
+		ifs.getline(buf, sizeof(buf));
+		strcpy(filename[i], buf);
 	}
-	
-	for (int i = 0; i < n_samples[0]; i++){
-		cout << i << " : " << wav_data[0][i] << endl;
+
+	for (int i = 0; i < n_stim; i++) {
+		cout << "filename " << i << " : " << filename[i] << endl;
+		wav_data[i] = drwav_open_file_and_read_pcm_frames_f32(filename[i], &channels, &sampleRate, &n_samples[i], NULL);
 	}
 
 	for (int i = 0; i < n_stim; i++){
-		len_tones[i] = (float)n_samples[i] / FS;
-		cout << "n_samples : " << n_samples[i] << ", length : " << len_tones[i] << endl;
+		len_tones[i] = (float)n_samples[i] / Fs;
 	}
-	
-	cout << "here" << endl;
-
 
 	siSequencer seq;
-	cout << "seq instance was initialized" << endl;
-	seq.load_csv("oddball.csv", FS);
+	seq.load_csv(audio_data_csv, Fs);
 	seq.gen_array(wav_data, len_tones);
 
 	cout << "CSV file was loaded." << endl;
@@ -346,7 +317,7 @@ int main(void) {
 	padata data;
 
 	int n_ch = seq.n_ch;
-	cout << "ch : " << n_ch << endl;
+	cout << "n_ch : " << n_ch << endl;
 	cout << "time : " << seq.time << endl;
 	
 
@@ -368,8 +339,8 @@ int main(void) {
 		&stream,
 		NULL,
 		&outParam,
-		FS,
-		FRAMES_PER_BUFFER,
+		Fs,
+		frames_per_buffer,
 		paClipOff,
 		dsp,
 		&data);
