@@ -242,11 +242,17 @@ int main(int argc, char *argv[]) {
 	int Fs = atoi(argv[3]); 
 	int frames_per_buffer = atoi(argv[4]);
 	
+	
 	cout << "Audio Data CSV file name : " << audio_data_csv << endl;
 	cout << "Audio Files CSV file name : " << audio_files_csv << endl;
 	cout << "Fs : " << Fs << endl;
 	cout << "Frames per buffer : " << frames_per_buffer << endl;
 	//cout << frames_per_buffer << endl;
+
+#if TRIG_DEV == 1
+	char* bb_port = argv[5]
+	cout << "ButtonBox Port : " << bb_port << endl;
+#endif
 
 #if ENTRIG == 0
 	int trig = 0;
@@ -280,7 +286,7 @@ int main(int argc, char *argv[]) {
 #if TRIG_DEV == 1
 	int trig = 0;
 	Buttonbox bb;
-	bb.open("COM4", 3);
+	bb.open(bb_port, 3);
 	bb.sendMarker(0);
 	cout << "Button Box was connected successfully" << endl;
 #endif
