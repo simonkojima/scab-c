@@ -13,21 +13,13 @@
 #include "portaudio.h"
 #include "./dr_wav.h"
 
-#define ENTRIG 1
-#define TRIG_DEV 1
-// TRIG_DEV
-// 0 : NIDAQ
-// 1 : ButtonBox
+#define ENTRIG 0
 
 using namespace std;
 
 #if ENTRIG == 1
-#if TRIG_DEV == 0
+	#pragma comment(lib, "NIDAQmx.lib")
 	#include "NIDAQmx.h"
-#endif
-#if TRIG_DEV == 1
-	#include "../Buttonbox-C/Buttonbox.h"
-#endif
 #endif
 
 void add_stim(float* y, float* stim, int N) {
@@ -242,17 +234,11 @@ int main(int argc, char *argv[]) {
 	int Fs = atoi(argv[3]); 
 	int frames_per_buffer = atoi(argv[4]);
 	
-	
 	cout << "Audio Data CSV file name : " << audio_data_csv << endl;
 	cout << "Audio Files CSV file name : " << audio_files_csv << endl;
 	cout << "Fs : " << Fs << endl;
 	cout << "Frames per buffer : " << frames_per_buffer << endl;
 	//cout << frames_per_buffer << endl;
-
-#if TRIG_DEV == 1
-	char* bb_port = argv[5]
-	cout << "ButtonBox Port : " << bb_port << endl;
-#endif
 
 #if ENTRIG == 0
 	int trig = 0;
@@ -260,7 +246,7 @@ int main(int argc, char *argv[]) {
 
 
 #if ENTRIG == 1
-#if TRIG_DEV == 0
+
 	//-------------------------------------------------------------------------------------------------
 	// NI DAQ INITIALIZATION
 
@@ -280,16 +266,9 @@ int main(int argc, char *argv[]) {
 	// DAQmx Write Code
 	DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
 
+
 	//-------------------------------------------------------------------------------------------------
 
-#endif
-#if TRIG_DEV == 1
-	int trig = 0;
-	Buttonbox bb;
-	bb.open(bb_port, 3);
-	bb.sendMarker(0);
-	cout << "Button Box was connected successfully" << endl;
-#endif
 #endif
 	
 	//-----------------------------------------------------------
@@ -391,21 +370,11 @@ int main(int argc, char *argv[]) {
 #if ENTRIG == 1
 		if (data.current_trig != 0) {
 			trig = data.current_trig;
-#if TRIG_DEV == 0
 			DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
-#endif
-#if TRIG_DEV == 1
-			bb.sendMarker(trig);
-#endif
 			trig = 0;
 			data.current_trig = 0;
 			QueryPerformanceCounterSleep(5, clock);
-#if TRIG_DEV == 0
 			DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
-#endif
-#if TRIG_DEV == 1
-			bb.sendMarker(trig);
-#endif
 		}
 #endif
 		QueryPerformanceCounter(&now);
@@ -415,19 +384,13 @@ int main(int argc, char *argv[]) {
 
 #if ENTRIG == 1
 	trig = 0;
-#if TRIG_DEV == 0
 	DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
-#endif
-#if TRIG_DEV == 1
-	bb.sendMarker(trig);	
-#endif
 #endif
 
 #if 1
 	Pa_StopStream(stream);
 	Pa_CloseStream(stream);
 	Pa_Terminate();
-	bb.close();
 #endif
 
 	return 0;

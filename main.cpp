@@ -13,13 +13,21 @@
 #include "portaudio.h"
 #include "./dr_wav.h"
 
-#define ENTRIG 0
+#define ENTRIG 1
+#define TRIG_DEV 0 
+// TRIG_DEV
+// 0 : NIDAQ
+// 1 : ButtonBox
 
 using namespace std;
 
 #if ENTRIG == 1
-	#pragma comment(lib, "NIDAQmx.lib")
+#if TRIG_DEV == 0
 	#include "NIDAQmx.h"
+#endif
+#if TRIG_DEV == 1
+	#include "../Buttonbox-C/Buttonbox.h"
+#endif
 #endif
 
 void add_stim(float* y, float* stim, int N) {
@@ -234,19 +242,27 @@ int main(int argc, char *argv[]) {
 	int Fs = atoi(argv[3]); 
 	int frames_per_buffer = atoi(argv[4]);
 	
+	
 	cout << "Audio Data CSV file name : " << audio_data_csv << endl;
 	cout << "Audio Files CSV file name : " << audio_files_csv << endl;
 	cout << "Fs : " << Fs << endl;
 	cout << "Frames per buffer : " << frames_per_buffer << endl;
 	//cout << frames_per_buffer << endl;
 
-#if ENTRIG == 0
-	int trig = 0;
+#if ENTRIG == 1
+#if TRIG_DEV == 1
+	char* bb_port = argv[5]
+	cout << "ButtonBox Port : " << bb_port << endl;
+#endif
+#if TRIG_DEV == 0
+	char* ni_port = argv[5];
+	cout << "NI-DAQ Port : " << ni_port << endl;
+#endif
 #endif
 
 
 #if ENTRIG == 1
-
+#if TRIG_DEV == 0
 	//-------------------------------------------------------------------------------------------------
 	// NI DAQ INITIALIZATION
 
@@ -258,7 +274,8 @@ int main(int argc, char *argv[]) {
 
 	// DAQmx Configure Code
 	DAQmxCreateTask("", &taskHandle);
-	DAQmxCreateDOChan(taskHandle, "Dev1/port0", "", DAQmx_Val_ChanForAllLines);
+	//DAQmxCreateDOChan(taskHandle, "Dev1/port0", "", DAQmx_Val_ChanForAllLines);
+	DAQmxCreateDOChan(taskHandle, ni_port, "", DAQmx_Val_ChanForAllLines);
 
 	// DAQmx Start Code
 	DAQmxStartTask(taskHandle);
@@ -266,9 +283,16 @@ int main(int argc, char *argv[]) {
 	// DAQmx Write Code
 	DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
 
-
 	//-------------------------------------------------------------------------------------------------
 
+#endif
+#if TRIG_DEV == 1
+	int trig = 0;
+	Buttonbox bb;
+	bb.open(bb_port, 3);
+	bb.sendMarker(0);
+	cout << "Button Box was connected successfully" << endl;
+#endif
 #endif
 	
 	//-----------------------------------------------------------
@@ -370,11 +394,21 @@ int main(int argc, char *argv[]) {
 #if ENTRIG == 1
 		if (data.current_trig != 0) {
 			trig = data.current_trig;
+#if TRIG_DEV == 0
 			DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
+#endif
+#if TRIG_DEV == 1
+			bb.sendMarker(trig);
+#endif
 			trig = 0;
 			data.current_trig = 0;
 			QueryPerformanceCounterSleep(5, clock);
+#if TRIG_DEV == 0
 			DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
+#endif
+#if TRIG_DEV == 1
+			bb.sendMarker(trig);
+#endif
 		}
 #endif
 		QueryPerformanceCounter(&now);
@@ -384,13 +418,25 @@ int main(int argc, char *argv[]) {
 
 #if ENTRIG == 1
 	trig = 0;
+#if TRIG_DEV == 0
 	DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
+#endif
+#if TRIG_DEV == 1
+	bb.sendMarker(trig);	
+#endif
 #endif
 
 #if 1
 	Pa_StopStream(stream);
 	Pa_CloseStream(stream);
 	Pa_Terminate();
+
+#if ENTRIG == 1
+#if TRIG_DEV == 1
+	bb.close();
+#endif
+#endif
+
 #endif
 
 	return 0;

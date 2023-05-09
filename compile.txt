@@ -2,3 +2,5 @@ g++ ./main.cpp -o main.exe; ./main.exe
 g++ ./main.cpp -L. -lportaudio_x64 -o main.exe
 
 g++ -Ofast -mtune=native -march=native -mfpmath=both -std=c++14 ./main.cpp -L. -lportaudio_x64 -o main.exe
+
+g++ -Ofast -mtune=native -march=native -mfpmath=both -std=c++14 ./main.cpp -L. -lportaudio_x64 -lNIDAQmx -o main.exe
