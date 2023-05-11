@@ -13,8 +13,8 @@
 #include "portaudio.h"
 #include "./dr_wav.h"
 
-#define ENTRIG 1
-#define TRIG_DEV 0 
+//#define ENTRIG
+//#define TRIG_DEV
 // TRIG_DEV
 // 0 : NIDAQ
 // 1 : ButtonBox
@@ -57,14 +57,14 @@ int imax(int* x, int N) {
 	return y;
 }
 
-class siSequencer
+class AudioHandler
 {
 	int N;
 	int Fs;
 	float* csv_data;
 public:
-	siSequencer();
-	~siSequencer();
+	AudioHandler();
+	~AudioHandler();
 	void load_csv(const char* filename, int Fs);
 	void gen_array(float** tones, float* len_tones);
 	int n_ch;
@@ -74,15 +74,15 @@ public:
 	int length;
 };
 
-siSequencer::siSequencer(){
+AudioHandler::AudioHandler(){
 	
 }
 
-siSequencer::~siSequencer(){
+AudioHandler::~AudioHandler(){
 
 }
 
-void siSequencer::load_csv(const char* filename, int Fs) {
+void AudioHandler::load_csv(const char* filename, int Fs) {
 	std::ifstream ifs;
 	ifs.open(filename);
 
@@ -110,7 +110,7 @@ void siSequencer::load_csv(const char* filename, int Fs) {
 	
 }
 
-void siSequencer::gen_array(float** tones, float* len_tones) {
+void AudioHandler::gen_array(float** tones, float* len_tones) {
 	// unit of len_tones : seconds
 
 	float* t_csv = new float[this->N];
@@ -326,9 +326,9 @@ int main(int argc, char *argv[]) {
 		len_tones[i] = (float)n_samples[i] / Fs;
 	}
 
-	siSequencer seq;
-	seq.load_csv(audio_data_csv, Fs);
-	seq.gen_array(wav_data, len_tones);
+	AudioHandler audio_handler;
+	audio_handler.load_csv(audio_data_csv, Fs);
+	audio_handler.gen_array(wav_data, len_tones);
 
 	cout << "CSV file was loaded." << endl;
 
@@ -340,14 +340,14 @@ int main(int argc, char *argv[]) {
 	PaError err;
 	padata data;
 
-	int n_ch = seq.n_ch;
+	int n_ch = audio_handler.n_ch;
 	cout << "n_ch : " << n_ch << endl;
-	cout << "time : " << seq.time << endl;
+	cout << "time : " << audio_handler.time << endl;
 	
 
 	data.n_ch = n_ch;
-	data.y = seq.data;
-	data.trig = seq.trig;
+	data.y = audio_handler.data;
+	data.trig = audio_handler.trig;
 
 	//-------------------------------------------------------------------------------------------------
 	// Initializing Port Audio
@@ -389,7 +389,7 @@ int main(int argc, char *argv[]) {
 
 	QueryPerformanceCounter(&start);
 	QueryPerformanceCounter(&now);
-	while (((double)(now.QuadPart - start.QuadPart) / clock.QuadPart) <= seq.time) {
+	while (((double)(now.QuadPart - start.QuadPart) / clock.QuadPart) <= audio_handler.time) {
 
 #if ENTRIG == 1
 		if (data.current_trig != 0) {
