@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
 
 #if ENTRIG == 1
 #if TRIG_DEV == 1
-	char* bb_port = argv[5]
+	char* bb_port = argv[5];
 	cout << "ButtonBox Port : " << bb_port << endl;
 #endif
 #if TRIG_DEV == 0
