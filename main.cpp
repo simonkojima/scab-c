@@ -155,7 +155,9 @@ void AudioHandler::gen_array(float** tones, float* len_tones) {
 
 	for (int i = 0; i < this->N; i++) {
 		idx = (int)(t_csv[i] * Fs);
-		add_stim(&(y_mat[ch_csv[i]][idx]), tones[stim_csv[i]], (int)(len_tones[stim_csv[i]] * Fs));
+		if (stim_csv[i] != -1){
+			add_stim(&(y_mat[ch_csv[i]][idx]), tones[stim_csv[i]], (int)(len_tones[stim_csv[i]] * Fs));
+		}
 	}
 	
 
@@ -305,7 +307,7 @@ int main(int argc, char *argv[]) {
 	ifs.open(audio_files_csv);
 	char buf[512];
 	ifs.getline(buf, sizeof(buf));
-	int n_stim = (int)atof(buf);
+	int n_stim = (int)atof(buf) - 1;
 
 	drwav_uint64* n_samples = new drwav_uint64[n_stim];
 	float* len_tones = new float[n_stim];

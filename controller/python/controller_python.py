@@ -40,17 +40,20 @@ for m in _plan:
         
 audio_csv_data = list()
 for idx, m in enumerate(plan):
-    audio_csv_data.append([soa*(idx+1)])
-    audio_csv_data.append([0])
-    audio_csv_data.append([m])
-    audio_csv_data.append([m])
+    audio_csv_data.append([soa*(idx+1)]) # time (seconds)
+    audio_csv_data.append([0]) # channel
+    if idx % 3 == 0:
+        audio_csv_data.append([-1]) # stim index
+    else:
+        audio_csv_data.append([m]) # stim index
+    audio_csv_data.append([m]) # trigger
 
 audio_csv_data.insert(0, [1])
 audio_csv_data.insert(0, [len(audio_csv_data)+1])
 
 files_csv_data = list()
-files_csv_data.append([os.path.join(scab_dir, "1000.wav")])
-files_csv_data.append([os.path.join(scab_dir, "1200.wav")])
+files_csv_data.append([os.path.join(scab_dir, "misc", "audio", "1000.wav")])
+files_csv_data.append([os.path.join(scab_dir, "misc", "audio", "1200.wav")])
 files_csv_data.insert(0, [len(files_csv_data) + 1])
 
 with open(os.path.join(scab_dir, "python_test_audio.csv"), 'w', newline='') as f:
@@ -62,7 +65,7 @@ with open(os.path.join(scab_dir, "python_test_files.csv"), 'w', newline='') as f
     writer.writerows(files_csv_data)
 
 
-command = [os.path.join(scab_dir, "main.exe"),
+command = [os.path.join(scab_dir, "build", "scab_notrigger.exe"),
            os.path.join(scab_dir, "python_test_audio.csv"),
            os.path.join(scab_dir, "python_test_files.csv"),
            str(Fs),
@@ -70,6 +73,7 @@ command = [os.path.join(scab_dir, "main.exe"),
 
 try: 
     p = subprocess.Popen(command, shell=True)
+    print("start playing")
     while True:
         if p.poll() is not None:
             break
