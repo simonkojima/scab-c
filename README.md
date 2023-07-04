@@ -29,4 +29,7 @@ g++ ./main.cpp ./libs/serialib.o -L./libs -lportaudio_x64 -o ./build/scab_button
 # compile with native environment
 g++ -Ofast -mtune=native -march=native -mfpmath=both -std=c++14 ./main.cpp -L./libs -lportaudio_x64 -lNIDAQmx -o ./build/main.exe
 
+# compile with native environment (nidaq trigger)
+g++ ./main.cpp -L./libs -lportaudio_x64 -lNIDAQmx -mtune=native -march=native -mfpmath=both -o ./build/scab_nidaq.exe -DENTRIG=1 -DTRIG_DEV=0
+
 ```
