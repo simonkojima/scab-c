@@ -7,6 +7,17 @@
 4 : Frames per buffer  
 5 : portnum  
 
+# Format for CSV Files
+## for Audio Sequences
+```
+csv[0] : number of raws
+csv[1] : number of channels
+csv[n] : time
+csv[n+1] : channel
+csv[n+2] : stimulus (file) id
+csv[n+3] : marker
+```
+
 # compile
 
 ## macro
