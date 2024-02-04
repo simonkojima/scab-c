@@ -1,7 +1,11 @@
 import os
 import sys
+import socket
 import csv
 import subprocess
+import threading
+import json
+import time
 
 import utils
 
@@ -27,6 +31,7 @@ while True:
         break
             
 print(_plan)
+print(len(_plan))
 
 # TODO
 # analyze targt-target distances
@@ -37,24 +42,91 @@ for m in _plan:
         plan.append(1)
     else:
         plan.append(0)
-        
+
+
 audio_csv_data = list()
 for idx, m in enumerate(plan):
-    audio_csv_data.append([soa*(idx+1)]) # time (seconds)
-    audio_csv_data.append([0]) # channel
-    if idx % 3 == 0:
-        audio_csv_data.append([-1]) # stim index
-    else:
-        audio_csv_data.append([m]) # stim index
-    audio_csv_data.append([m]) # trigger
+    val = list()
+    val.append(soa*(idx+1)) # time (seconds)
+    val.append(0) # channel
+    #if idx % 3 == 0:
+    #    val.append(-1) # stim index
+    #else:
+    #    val.append(m) # stim index
+    val.append(m)
+    #val.append(m+1) # trigger
+    if m == 0:
+        val.append(1)
+    elif m == 1:
+        val.append(11)
+    audio_csv_data.append(val)
+    #if idx == 3:
+    #    break
 
-audio_csv_data.insert(0, [1])
-audio_csv_data.insert(0, [len(audio_csv_data)+1])
+print(audio_csv_data)
+#audio_csv_data.insert(0, [1])
+#audio_csv_data.insert(0, [len(audio_csv_data)+1])
 
 files_csv_data = list()
-files_csv_data.append([os.path.join(scab_dir, "misc", "audio", "1000.wav")])
-files_csv_data.append([os.path.join(scab_dir, "misc", "audio", "1200.wav")])
-files_csv_data.insert(0, [len(files_csv_data) + 1])
+files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "1000.wav"))
+files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "1200.wav"))
+
+json_data = dict()
+json_data['sequence'] = audio_csv_data
+json_data['files'] = files_csv_data
+json_data['n_channels'] = 1
+json_data['sample_rate'] = 44100
+json_data['frames_per_buffer'] = 512
+
+
+
+target_ip = "127.0.0.1"
+target_port = 65500
+#buffer_size = 4096
+tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#tcp_client.settimeout(0.01)
+
+def play():
+    try: 
+        command = [os.path.join(scab_dir, "build", "scab_lsl.exe")]
+        p = subprocess.Popen(command)
+        tcp_client.connect((target_ip,target_port))
+        tcp_client.send(json.dumps(json_data).encode())
+        response = tcp_client.recv(4096).decode('utf-8')
+        if response == 'end':
+            return
+
+    except:
+        p.kill()
+        print("process was killed.")
+    
+    
+
+while True:
+    thread = threading.Thread(target=play)
+    thread.start()
+    while True:
+        time.sleep(1)
+        #print(thread.is_alive())
+exit()
+
+try: 
+    p = subprocess.Popen(command)
+    print("scab was started")
+    tcp_client.connect((target_ip,target_port))
+    tcp_client.send(json.dumps(json_data).encode())
+
+    while True:
+        print("abc")
+        response = tcp_client.recv(4096)
+        print(response.decode('utf-8'))
+        if p.poll() is not None:
+            break
+except:
+    p.kill()
+    print("process was killed.")
+
+exit()
 
 with open(os.path.join(scab_dir, "python_test_audio.csv"), 'w', newline='') as f:
     writer = csv.writer(f)
@@ -65,21 +137,8 @@ with open(os.path.join(scab_dir, "python_test_files.csv"), 'w', newline='') as f
     writer.writerows(files_csv_data)
 
 
-command = [os.path.join(scab_dir, "build", "scab_notrigger.exe"),
-           os.path.join(scab_dir, "python_test_audio.csv"),
-           os.path.join(scab_dir, "python_test_files.csv"),
-           str(Fs),
-           str(frames_per_buffer)]
+exit()
 
-try: 
-    p = subprocess.Popen(command, shell=True)
-    print("start playing")
-    while True:
-        if p.poll() is not None:
-            break
-except:
-    p.kill()
-    print("process was killed.")
 
 
  
