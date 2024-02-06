@@ -35,6 +35,8 @@ notrigger:
 	$(CC) $(SRCS) $(CFLAGS) $(INCDIR) $(LIBDIR) $(LIB_PORTAUDIO) $(LIBS) -o ../build/scab_notrigger.exe -DENTRIG=0
 lsl:
 	$(CC) $(SRCS) $(CFLAGS) $(INCDIR) $(LIBDIR) $(LIB_PORTAUDIO) $(LIBS) -llsl -o ../build/scab_lsl.exe -DENTRIG=1 -DTRIG_DEV=2
+nidaq:
+	$(CC) $(SRCS) $(CFLAGS) $(INCDIR) $(LIBDIR) $(LIB_PORTAUDIO) $(LIBS) -lNIDAQmx -o ../build/scab_nidaq.exe -DENTRIG=1 -DTRIG_DEV=0
 # (12).oファイル、実行ファイル、.dファイルを削除
 clean:
 	-rm -f $(OBJS) $(TARGET) *.d

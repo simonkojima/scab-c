@@ -18,15 +18,20 @@ scab_dir = os.path.join(home_dir, 'git', 'scab-c')
 target = 1
 min_nstims_before_first_target = 4
 
+scab = "lsl"
+#scab = "nidaq"
+
 soa = 0.6
 
 Fs = 44100
-frames_per_buffer = 1024
+frames_per_buffer = 48
 
-_plan = utils.generate_stimulation_plan(n_stim_types = 5, itrs = 10)
+#itrs = 11
+itrs = 200
+_plan = utils.generate_stimulation_plan(n_stim_types = 5, itrs = itrs)
 while True:
     if utils.check_min_nstims_before_first_target(_plan, target) < min_nstims_before_first_target:
-        _plan = utils.generate_stimulation_plan(n_stim_types = 5, itrs = 10)
+        _plan = utils.generate_stimulation_plan(n_stim_types = 5, itrs = itrs)
     else:
         break
             
@@ -49,16 +54,8 @@ for idx, m in enumerate(plan):
     val = list()
     val.append(soa*(idx+1)) # time (seconds)
     val.append(0) # channel
-    #if idx % 3 == 0:
-    #    val.append(-1) # stim index
-    #else:
-    #    val.append(m) # stim index
-    val.append(m)
-    #val.append(m+1) # trigger
-    if m == 0:
-        val.append(1)
-    elif m == 1:
-        val.append(11)
+    val.append(0) # file id
+    val.append(1) # trigger
     audio_csv_data.append(val)
     #if idx == 3:
     #    break
@@ -68,16 +65,15 @@ for idx, m in enumerate(plan):
 #audio_csv_data.insert(0, [len(audio_csv_data)+1])
 
 files_csv_data = list()
-files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "1000.wav"))
-files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "1200.wav"))
+files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "500_latency_test.wav"))
+#files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "1200.wav"))
 
 json_data = dict()
 json_data['sequence'] = audio_csv_data
 json_data['files'] = files_csv_data
 json_data['n_channels'] = 1
 json_data['sample_rate'] = 44100
-json_data['frames_per_buffer'] = 512
-
+json_data['frames_per_buffer'] = frames_per_buffer
 
 
 target_ip = "127.0.0.1"
@@ -88,7 +84,11 @@ tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def play():
     try: 
-        command = [os.path.join(scab_dir, "build", "scab_lsl.exe")]
+        if scab == "lsl":
+            command = [os.path.join(scab_dir, "build", "scab_lsl.exe")]
+        elif scab == "nidaq":
+            command = [os.path.join(scab_dir, "build", "scab_nidaq.exe")]
+            json_data["ni_port"] = "Dev1/port0"
         p = subprocess.Popen(command)
         tcp_client.connect((target_ip,target_port))
         

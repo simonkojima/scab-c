@@ -36,6 +36,9 @@ using json = nlohmann::json;
 
 using namespace std;
 
+//#define ENTRIG 1
+//#define TRIG_DEV 0
+
 #if ENTRIG == 1
 #if TRIG_DEV == 0
 	#include "NIDAQmx.h"
@@ -47,6 +50,7 @@ using namespace std;
 	#include "lsl_cpp.h"
 #endif
 #endif
+
 
 typedef struct PADATA {
 	float** y;
@@ -137,16 +141,20 @@ AudioHandler::~AudioHandler(){
 }
 
 void AudioHandler::set_params(int Fs, int n_ch, int n_total_stims, int frames_per_buffer){
+	/*
 	std::cout << n_total_stims << std::endl;
 	std::cout << n_ch << std::endl;
 	std::cout << Fs << std::endl;
+	*/
 	this->n_ch = n_ch;
 	this->Fs = Fs;
 	this->N = n_total_stims;
 	this->frames_per_buffer = frames_per_buffer;
+	/*
 	std::cout << this->N << std::endl;
 	std::cout << this->n_ch << std::endl;
 	std::cout << this->Fs << std::endl;
+	*/
 }
 
 void AudioHandler::load_csv(const char* filename, int Fs) {
@@ -185,10 +193,12 @@ void AudioHandler::gen_array_json(json sequence, float**tones, float* len_tones)
 	
 	int idx;
 
+	/*
 	std::cout << sequence << std::endl;
-	
+	*/
+
 	for (int i = 0; i < this->N; i++) {
-		std::cout << sequence[i] << std::endl;
+		//std::cout << sequence[i] << std::endl;
 		t[i] = sequence[i][0];
 		ch[i] = sequence[i][1];
 		stim[i] = sequence[i][2];
@@ -355,7 +365,7 @@ void prepare(json json_data, AudioHandler* audio_handler){
 	//-----------------------------------------------------------
 	// read wav file
 
-	std::cout << json_data << std::endl;
+	//std::cout << json_data << std::endl;
 	
 	unsigned int n_channels;
 	unsigned int sampleRate;
@@ -371,14 +381,14 @@ void prepare(json json_data, AudioHandler* audio_handler){
 	sequence = json_data["sequence"];
 	files = json_data["files"];
 		
-
+	/*
 	std::cout << n_channels << std::endl;
 	std::cout << sampleRate << std::endl;
 	std::cout << frames_per_buffer << std::endl;
 	
 	std::cout << sequence << std::endl;
 	std::cout << files << std::endl;
-	
+	*/
 	
 	n_stim = files.size();
 	n_total_stims = sequence.size();
@@ -415,7 +425,14 @@ void prepare(json json_data, AudioHandler* audio_handler){
 	std::cout << "audio data matrix was created." << std::endl;
 }
 
-void play(AudioHandler* audio_handler){
+//lsl::stream_outlet outlet(info);
+#if ENTRIG == 1 && TRIG_DEV == 2
+void play(json json_data, AudioHandler* audio_handler, lsl::stream_outlet* outlet){
+#else
+void play(json json_data, AudioHandler* audio_handler){
+#endif
+	
+	std::cout << "play was called" << std::endl;
 
 #if ENTRIG == 1
 #if TRIG_DEV == 1
@@ -423,16 +440,22 @@ void play(AudioHandler* audio_handler){
 	cout << "ButtonBox Port : " << bb_port << endl;
 #endif
 #if TRIG_DEV == 0
-	char* ni_port = argv[5];
-	cout << "NI-DAQ Port : " << ni_port << endl;
+	//char* ni_port = argv[5];
+	char ni_port[4096];
+	//json_data["ni_port"];
+	std::cout << "here" << std::endl;
+	strcpy(ni_port, json_data["ni_port"].get<std::string>().c_str());
+	std::cout << "NI-DAQ Port : " << ni_port << std::endl;
 #endif
 #if TRIG_DEV == 2
+/*
 	const char *lsl_name = "scab-c_marker";
 	//char* ni_port = argv[5];
 	
 	lsl::stream_info info(lsl_name, "Markers", 1, lsl::IRREGULAR_RATE, lsl::cf_string, "id23443");
 	
-	cout << "LSL marker stream name : " << lsl_name << endl;
+	std::cout << "LSL marker stream name : " << lsl_name << std::endl;
+*/
 #endif
 #endif
 
@@ -471,7 +494,7 @@ void play(AudioHandler* audio_handler){
 #endif
 #if TRIG_DEV == 2
 	int trig = 0;	
-	lsl::stream_outlet outlet(info);
+	//lsl::stream_outlet outlet(info);
 	std::string mrk = "";
 #endif
 #endif
@@ -489,6 +512,7 @@ void play(AudioHandler* audio_handler){
 	int frames_per_buffer = audio_handler->frames_per_buffer;
 	cout << "n_ch : " << n_ch << endl;
 	cout << "time : " << audio_handler->time << endl;
+	cout << "frames_per_buffer : " << frames_per_buffer << endl;
 	
 	data.n_ch = n_ch;
 	data.y = audio_handler->data;
@@ -547,7 +571,7 @@ void play(AudioHandler* audio_handler){
 #endif
 # if TRIG_DEV == 2
 			mrk = to_string(trig);
-			outlet.push_sample(&mrk);
+			outlet->push_sample(&mrk);
 #endif
 			trig = 0;
 			data.current_trig = 0;
@@ -624,9 +648,23 @@ int main(int argc, char *argv[]) {
 	
 	listen(src_socket, 1);
 	
-	char recv_buf1[100000], recv_buf2[4096];
+	char recv_buf1[100000];
 	char send_buf[4096];
 	char msg[256];
+	
+
+#if ENTRIG == 1
+#if TRIG_DEV == 2
+	const char *lsl_name = "scab-c_marker";
+	//char* ni_port = argv[5];
+	
+	lsl::stream_info info(lsl_name, "Markers", 1, lsl::IRREGULAR_RATE, lsl::cf_string, "id23443");
+	
+	lsl::stream_outlet outlet(info);
+	std::cout << "LSL marker stream name : " << lsl_name << std::endl;
+
+#endif
+#endif
 
 	while (1) {
 
@@ -648,13 +686,20 @@ int main(int argc, char *argv[]) {
 				status = closesocket(dst_socket); break;
 			}
 			json json_data = json::parse(recv_buf1);
-			std::cout << "recieved : " << json_data << std::endl;
+			//std::cout << "recieved : " << json_data << std::endl;
 
 			AudioHandler* audio_handler;
 			audio_handler = new AudioHandler[1];
 			
 			prepare(json_data, audio_handler);
-			play(audio_handler);
+
+
+			#if ENTRIG == 1 && TRIG_DEV == 2
+			play(json_data, audio_handler, &outlet);
+			#else
+			play(json_data, audio_handler);
+			#endif
+
 			
 			std::cout << "end" << std::endl;
 
