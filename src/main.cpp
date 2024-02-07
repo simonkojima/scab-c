@@ -12,6 +12,7 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <math.h>
+#include <bitset>
 
 //#include <iostream>
 //#include <sys/socket.h>
@@ -26,6 +27,10 @@
 
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
+
+#define PORT 49152
+#define HEADER_LENGTH 64
+#define BUFFER_LENGTH 122880
 
 //#define ENTRIG
 //#define TRIG_DEV
@@ -84,6 +89,18 @@ static int dsp(const void *inputBuffer,
 	return 0;
 }
 
+int intToCharArray(char* buffer, int in){
+	// for little endian
+
+	std::bitset<HEADER_LENGTH> data_bit(in);
+	int cnt = 0;
+	for (int i = (HEADER_LENGTH-1); i >= 0; i--){
+		std::bitset<HEADER_LENGTH> val = data_bit >> (i*8);
+		val &= 0xff;
+		buffer[i] = val.to_ulong();
+	}
+	return 0;
+}
 
 void add_stim(float* y, float* stim, int N) {
 	for (int i = 0; i < N; i++) {
@@ -617,7 +634,7 @@ int main(int argc, char *argv[]) {
 	
 	//https://tecsingularity.com/winsock/winsock2/
 	
-	int port_number = 65500;
+	int port_number = PORT;
 	
 	WSADATA wsa_data;
 
@@ -648,14 +665,15 @@ int main(int argc, char *argv[]) {
 	
 	listen(src_socket, 1);
 	
-	char recv_buf1[100000];
-	char send_buf[4096];
-	char msg[256];
+	char recv_buf[BUFFER_LENGTH];
+	char send_buf[BUFFER_LENGTH];
+	char buffer[HEADER_LENGTH];
+	//char msg[256];
 	
 
 #if ENTRIG == 1
 #if TRIG_DEV == 2
-	const char *lsl_name = "scab-c_marker";
+	const char *lsl_name = "scab-c";
 	//char* ni_port = argv[5];
 	
 	lsl::stream_info info(lsl_name, "Markers", 1, lsl::IRREGULAR_RATE, lsl::cf_string, "id23443");
@@ -668,7 +686,7 @@ int main(int argc, char *argv[]) {
 
 	while (1) {
 
-		std::cout << "waiting for connection..." << std::endl;
+		std::cout << "waiting for connection..., port: " << port_number << std::endl;
 
 		// クライアントからの接続を受信する
 		dst_socket = accept(src_socket, (struct sockaddr *) &dst_addr, &dst_addr_size);
@@ -680,13 +698,32 @@ int main(int argc, char *argv[]) {
 
 			int status;
 
-			//パケットの受信(recvは成功すると受信したデータのバイト数を返却。切断で0、失敗で-1が返却される
-			int recv1_result = recv(dst_socket, recv_buf1, sizeof(char) * 100000, 0);
+			// == Recieve ==
+
+			int recv1_result = recv(dst_socket, recv_buf, HEADER_LENGTH, 0);
 			if (recv1_result == 0 || recv1_result == -1) {
 				status = closesocket(dst_socket); break;
 			}
-			json json_data = json::parse(recv_buf1);
-			//std::cout << "recieved : " << json_data << std::endl;
+
+			// convert little endian data to int
+			unsigned int length;
+			std::memcpy(&length, recv_buf, sizeof(unsigned int));
+			
+			std::cout << "recieved length : " << length << std::endl;
+
+			
+			recv1_result = recv(dst_socket, recv_buf, length, 0);
+			if (recv1_result == 0 || recv1_result == -1) {
+				status = closesocket(dst_socket); break;
+			}
+			//json json_data = json::parse(recv_buf);
+			//td::cout << json_data << std::endl;
+
+			json json_data = json::parse(recv_buf);
+			std::cout << "recieved : " << json_data << std::endl;
+
+			// == Recieve end ==
+
 
 			AudioHandler* audio_handler;
 			audio_handler = new AudioHandler[1];
@@ -701,12 +738,24 @@ int main(int argc, char *argv[]) {
 			#endif
 
 			
-			std::cout << "end" << std::endl;
+			// == Secieve ==
+			json j;
+			j["type"] = "info";
+			j["info"] = "playback-finish";
+			
+			std::string s = j.dump();
+			
+			intToCharArray(buffer, s.size());
 
-			// 結果を格納したパケットの送信
-			//msg = 'end';
-			strcpy(msg, "end");
-			send(dst_socket, msg, sizeof(char) * 256, 0);
+			send(dst_socket, buffer, HEADER_LENGTH, 0);
+			send(dst_socket, s.c_str(), s.size(), 0);
+			
+			// == Send end //
+			
+			std::cout << "playback finish" << std::endl;
+
+			//strcpy(msg, "end");
+			//send(dst_socket, msg, sizeof(char) * 256, 0);
 		}
 	}
 	

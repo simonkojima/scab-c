@@ -45,6 +45,7 @@ for m in _plan:
 
 
 audio_csv_data = list()
+audio_csv_data.append([0, 0, -1, 200])
 for idx, m in enumerate(plan):
     val = list()
     val.append(soa*(idx+1)) # time (seconds)
@@ -62,7 +63,7 @@ for idx, m in enumerate(plan):
     audio_csv_data.append(val)
     #if idx == 3:
     #    break
-
+audio_csv_data.append([soa*(idx+2), 0, -1, 255])
 #print(audio_csv_data)
 #audio_csv_data.insert(0, [1])
 #audio_csv_data.insert(0, [len(audio_csv_data)+1])
@@ -81,22 +82,28 @@ json_data['frames_per_buffer'] = 512
 
 
 target_ip = "127.0.0.1"
-target_port = 65500
+target_port = 49152
+header_length = 64
 #buffer_size = 4096
 tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #tcp_client.settimeout(0.01)
 
 def play():
     try: 
-        command = [os.path.join(scab_dir, "build", "scab_lsl.exe")]
-        p = subprocess.Popen(command)
+        command = [os.path.join(scab_dir, "build", "scab-lsl.exe")]
+        p = subprocess.Popen(command, shell=True)
         tcp_client.connect((target_ip,target_port))
+        time.sleep(1)
         
-        input("\nPress Any Key to Start.")
-        tcp_client.send(json.dumps(json_data).encode())
-        response = tcp_client.recv(4096).decode('utf-8')
-        if response == 'end':
-            return
+        while True:
+            input("\nPress Any Key to Start.")
+            tcp_client.send(len(json.dumps(json_data).encode('utf-8')).to_bytes(header_length, byteorder='little'))
+            tcp_client.send(json.dumps(json_data).encode('utf-8'))
+
+            msg_length = int.from_bytes(tcp_client.recv(header_length), 'little')
+            message_recv = tcp_client.recv(msg_length).decode('utf-8')
+            msg_json = json.loads(message_recv)
+            print(msg_json)
 
     except:
         p.kill()
