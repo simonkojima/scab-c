@@ -18,15 +18,17 @@ scab_dir = os.path.join(home_dir, 'git', 'scab-c')
 target = 1
 min_nstims_before_first_target = 4
 
-soa = 0.6
+soa = 0.2
 
 Fs = 44100
 frames_per_buffer = 1024
 
-_plan = utils.generate_stimulation_plan(n_stim_types = 5, itrs = 10)
+itrs = 30
+
+_plan = utils.generate_stimulation_plan(n_stim_types = 5, itrs = itrs)
 while True:
     if utils.check_min_nstims_before_first_target(_plan, target) < min_nstims_before_first_target:
-        _plan = utils.generate_stimulation_plan(n_stim_types = 5, itrs = 10)
+        _plan = utils.generate_stimulation_plan(n_stim_types = 5, itrs = itrs)
     else:
         break
             

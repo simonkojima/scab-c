@@ -28,9 +28,9 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
-#define PORT 49152
-#define HEADER_LENGTH 64
-#define BUFFER_LENGTH 122880
+//#define PORT 49152
+//#define HEADER_LENGTH 64
+//#define BUFFER_LENGTH 122880
 
 //#define ENTRIG
 //#define TRIG_DEV
@@ -716,8 +716,11 @@ int main(int argc, char *argv[]) {
 			if (recv1_result == 0 || recv1_result == -1) {
 				status = closesocket(dst_socket); break;
 			}
+			recv_buf[length] = 0;
 			//json json_data = json::parse(recv_buf);
 			//td::cout << json_data << std::endl;
+			
+			std::cout << recv_buf << std::endl;
 
 			json json_data = json::parse(recv_buf);
 			std::cout << "recieved : " << json_data << std::endl;
@@ -738,7 +741,7 @@ int main(int argc, char *argv[]) {
 			#endif
 
 			
-			// == Secieve ==
+			// == Send ==
 			json j;
 			j["type"] = "info";
 			j["info"] = "playback-finish";
