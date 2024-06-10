@@ -1,1 +1,2 @@
 .\scab-lsl.exe
+pause
