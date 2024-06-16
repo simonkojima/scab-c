@@ -21,6 +21,15 @@ $(OBJS): $(SRCS)
 
 
 all: clean $(OBJS) $(TARGET)
+	
+sock:
+	$(CC) test-socket.cpp -o ./socket
+
+padevs:
+	$(CC) pa_devs.c $(INCDIR) -L../libs/arm64macos -lportaudio -o ../build/macos/padevs
+
+pasine:
+	$(CC) paex_sine.c $(INCDIR) -L../libs/arm64macos -lportaudio -o ../build/macos/pasine
 
 notrigger: 
 	$(CC) $(SRCS) $(CFLAGS) $(INCDIR) $(LIBDIR) $(LIB_PORTAUDIO) $(LIBS) -o ../build/scab-notrigger.exe $(MACROS) -DENTRIG=0
