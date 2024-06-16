@@ -18,13 +18,16 @@ scab_dir = os.path.join(home_dir, 'git', 'scab-c')
 target = 1
 min_nstims_before_first_target = 4
 
-soa = 0.2
+scab = "lsl"
+#scab = "nidaq"
+
+soa = 0.6
 
 Fs = 44100
-frames_per_buffer = 1024
+frames_per_buffer = 48
 
-itrs = 30
-
+#itrs = 11
+itrs = 200
 _plan = utils.generate_stimulation_plan(n_stim_types = 5, itrs = itrs)
 while True:
     if utils.check_min_nstims_before_first_target(_plan, target) < min_nstims_before_first_target:
@@ -47,65 +50,53 @@ for m in _plan:
 
 
 audio_csv_data = list()
-audio_csv_data.append([0, 0, -1, 200])
 for idx, m in enumerate(plan):
     val = list()
     val.append(soa*(idx+1)) # time (seconds)
     val.append(0) # channel
-    #if idx % 3 == 0:
-    #    val.append(-1) # stim index
-    #else:
-    #    val.append(m) # stim index
-    val.append(m)
-    #val.append(m+1) # trigger
-    if m == 0:
-        val.append(1)
-    elif m == 1:
-        val.append(11)
+    val.append(0) # file id
+    val.append(1) # trigger
     audio_csv_data.append(val)
     #if idx == 3:
     #    break
-audio_csv_data.append([soa*(idx+2), 0, -1, 255])
+
 #print(audio_csv_data)
 #audio_csv_data.insert(0, [1])
 #audio_csv_data.insert(0, [len(audio_csv_data)+1])
 
 files_csv_data = list()
-files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "1000.wav"))
-files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "1200.wav"))
+files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "500_latency_test.wav"))
+#files_csv_data.append(os.path.join(scab_dir, "misc", "audio", "1200.wav"))
 
 json_data = dict()
 json_data['sequence'] = audio_csv_data
 json_data['files'] = files_csv_data
 json_data['n_channels'] = 1
 json_data['sample_rate'] = 44100
-json_data['frames_per_buffer'] = 512
-
+json_data['frames_per_buffer'] = frames_per_buffer
 
 
 target_ip = "127.0.0.1"
-target_port = 49152
-header_length = 64
+target_port = 65500
 #buffer_size = 4096
 tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #tcp_client.settimeout(0.01)
 
 def play():
     try: 
-        command = [os.path.join(scab_dir, "build", "scab-lsl.exe")]
-        p = subprocess.Popen(command, shell=True)
+        if scab == "lsl":
+            command = [os.path.join(scab_dir, "build", "scab_lsl.exe")]
+        elif scab == "nidaq":
+            command = [os.path.join(scab_dir, "build", "scab_nidaq.exe")]
+            json_data["ni_port"] = "Dev1/port0"
+        p = subprocess.Popen(command)
         tcp_client.connect((target_ip,target_port))
-        time.sleep(1)
         
-        while True:
-            input("\nPress Any Key to Start.")
-            tcp_client.send(len(json.dumps(json_data).encode('utf-8')).to_bytes(header_length, byteorder='little'))
-            tcp_client.send(json.dumps(json_data).encode('utf-8'))
-
-            msg_length = int.from_bytes(tcp_client.recv(header_length), 'little')
-            message_recv = tcp_client.recv(msg_length).decode('utf-8')
-            msg_json = json.loads(message_recv)
-            print(msg_json)
+        input("\nPress Any Key to Start.")
+        tcp_client.send(json.dumps(json_data).encode())
+        response = tcp_client.recv(4096).decode('utf-8')
+        if response == 'end':
+            return
 
     except:
         p.kill()
