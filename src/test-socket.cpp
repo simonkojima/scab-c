@@ -10,6 +10,14 @@
 #define PORT 65500
 
 int main() {
+    
+    int64_t time;
+    for (int i = 0; i < 100000; i++){
+        //time = std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
+        std::cout << "time : " <<time << std::endl; 
+    }
+    
+
     int sockfd, new_sockfd;
     socklen_t clilen;
     char buffer[256];
