@@ -2,6 +2,7 @@
 //	scab
 //---------------------------------------------------------------------
 //#pragma comment(lib, "portaudio_x64.lib")
+//#define _GLIBCXX_USE_CXX11_ABI 0
 #define DR_WAV_IMPLEMENTATION
 #include <stdio.h>
 #include <string.h>
@@ -405,11 +406,12 @@ void prepare(json json_data, AudioHandler* audio_handler){
 	sequence = json_data["sequence"];
 	files = json_data["files"];
 		
+	
 	/*
 	std::cout << n_channels << std::endl;
 	std::cout << sampleRate << std::endl;
 	std::cout << frames_per_buffer << std::endl;
-	
+
 	std::cout << sequence << std::endl;
 	std::cout << files << std::endl;
 	*/
@@ -432,9 +434,11 @@ void prepare(json json_data, AudioHandler* audio_handler){
 		strcpy(filename[i], files[i].get<std::string>().c_str());
 	}
 
+	unsigned int wav_n_channels;
+	unsigned int wav_sampleRate;
 	for (int i = 0; i < n_stim; i++) {
-		std::cout << "filename " << i << " : " << filename[i] << std::endl;
-		wav_data[i] = drwav_open_file_and_read_pcm_frames_f32(filename[i], &n_channels, &sampleRate, &n_samples[i], NULL);
+		cout << "filename " << i << " : " << filename[i] << endl;
+		wav_data[i] = drwav_open_file_and_read_pcm_frames_f32(filename[i], &wav_n_channels, &wav_sampleRate, &n_samples[i], NULL);
 	}
 
 	for (int i = 0; i < n_stim; i++){
