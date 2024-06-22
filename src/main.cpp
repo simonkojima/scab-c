@@ -5,33 +5,26 @@
 //#define _GLIBCXX_USE_CXX11_ABI 0
 #define DR_WAV_IMPLEMENTATION
 #include <stdio.h>
-#include <string>
+#include <string.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <windows.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <math.h>
 #include <bitset>
+#include <netinet/in.h>
 
-//#include <iostream>
-//#include <sys/socket.h>
-//#include <sys/types.h>
-//#include <arpa/inet.h>
-//#include <unistd.h>
-//#include <string>
-//#include <cstring>
-
+#include <unistd.h>
 #include "portaudio.h"
 #include "dr_wav.h"
 
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
-//#define PORT 49152
-//#define HEADER_LENGTH 64
-//#define BUFFER_LENGTH 122880
+#define PORT 49152
+#define HEADER_LENGTH 64
+#define BUFFER_LENGTH 122880
 
 //#define ENTRIG
 //#define TRIG_DEV
@@ -40,7 +33,7 @@ using json = nlohmann::json;
 // 1 : ButtonBox
 // 2 : LSL
 
-using namespace std;
+//using namespace std;
 
 //#define ENTRIG 1
 //#define TRIG_DEV 0
@@ -364,6 +357,19 @@ void AudioHandler::gen_array_csv(float** tones, float* len_tones) {
 	this->length = idx;
 }
 
+void sleep(int time_millisec){
+	int64_t time_nanosec = (int64_t) time_millisec*1000000.0; // convert from millisec to nanosec
+	int64_t start, end;
+    start = std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
+    end = std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
+	
+	while ((end-start) <= time_nanosec) {
+    	end = std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
+	}
+	
+}
+
+/*
 void QueryPerformanceCounterSleep(int time_millisec, LARGE_INTEGER freq) {
 	LARGE_INTEGER start, end;
 	QueryPerformanceCounter(&start);
@@ -377,6 +383,7 @@ LARGE_INTEGER getQueryPerformanceCounter(LARGE_INTEGER* now) {
 	QueryPerformanceCounter(now);
 	return *now;
 }
+*/
 
 void prepare(json json_data, AudioHandler* audio_handler){
 
@@ -531,9 +538,9 @@ void play(json json_data, AudioHandler* audio_handler){
 	int n_ch = audio_handler->n_ch;
 	int Fs = audio_handler->Fs;
 	int frames_per_buffer = audio_handler->frames_per_buffer;
-	cout << "n_ch : " << n_ch << endl;
-	cout << "time : " << audio_handler->time << endl;
-	cout << "frames_per_buffer : " << frames_per_buffer << endl;
+	std::cout << "n_ch : " << n_ch << std::endl;
+	std::cout << "time : " << audio_handler->time << std::endl;
+	std::cout << "frames_per_buffer : " << frames_per_buffer << std::endl;
 	
 	data.n_ch = n_ch;
 	data.y = audio_handler->data;
@@ -560,26 +567,34 @@ void play(json json_data, AudioHandler* audio_handler){
 		&data);
 
 	//cout << Pa_GetDeviceInfo(outParam.device)->name << endl;
-	cout << "API : " << Pa_GetHostApiInfo(Pa_GetDefaultHostApi())->name << endl;
+	std::cout << "API : " << Pa_GetHostApiInfo(Pa_GetDefaultHostApi())->name << std::endl;
 	if (strcmp(Pa_GetHostApiInfo(Pa_GetDefaultHostApi())->name, "ASIO") != 0) {
-		cout << "Warning : This session is NOT running on ASIO." << endl;
+		std::cout << "Warning : This session is NOT running on ASIO." << std::endl;
 	}
 
 	//-----------------------------------------------------------
 	// initialize query performance counter
-	LARGE_INTEGER start, now, clock;
-	QueryPerformanceFrequency(&clock);
+    int64_t start, now;
+
+	start = std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
+	now = std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
+	
+	//LARGE_INTEGER start, now, clock;
+	//QueryPerformanceFrequency(&clock);
 	//-----------------------------------------------------------
-	QueryPerformanceCounterSleep(1000, clock);
+	//QueryPerformanceCounterSleep(1000, clock);
+	
+	sleep(1000);
+
 	//-----------------------------------------------------------
 	Pa_StartStream(stream);  // Start Port Audio
 	//-----------------------------------------------------------
 
-	cout << "Started" << endl;
+	std::cout << "Started" << std::endl;
 
-	QueryPerformanceCounter(&start);
-	QueryPerformanceCounter(&now);
-	while (((double)(now.QuadPart - start.QuadPart) / clock.QuadPart) <= audio_handler->time) {
+	//QueryPerformanceCounter(&start);
+	//QueryPerformanceCounter(&now);
+	while ((now - start)/1000000000.0 <= audio_handler->time) {
 
 #if ENTRIG == 1
 		if (data.current_trig != 0) {
@@ -591,12 +606,13 @@ void play(json json_data, AudioHandler* audio_handler){
 			bb.sendMarker(trig);
 #endif
 # if TRIG_DEV == 2
-			mrk = to_string(trig);
+			mrk = std::to_string(trig);
 			outlet->push_sample(&mrk);
 #endif
 			trig = 0;
 			data.current_trig = 0;
-			QueryPerformanceCounterSleep(5, clock);
+			//QueryPerformanceCounterSleep(5, clock);
+			sleep(5);
 #if TRIG_DEV == 0
 			DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
 #endif
@@ -605,10 +621,12 @@ void play(json json_data, AudioHandler* audio_handler){
 #endif
 		}
 #endif
-		QueryPerformanceCounter(&now);
+		//QueryPerformanceCounter(&now);
+		now = std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
 	}
 
-	QueryPerformanceCounterSleep(1000, clock);
+	//QueryPerformanceCounterSleep(1000, clock);
+	sleep(1000);
 
 #if ENTRIG == 1
 	trig = 0;
@@ -636,43 +654,32 @@ void play(json json_data, AudioHandler* audio_handler){
 
 int main(int argc, char *argv[]) {
 	
-	//https://tecsingularity.com/winsock/winsock2/
-	
-	int port_number = PORT;
-	
-	WSADATA wsa_data;
+    int sockfd, new_sockfd;
+    socklen_t clilen;
+    struct sockaddr_in serv_addr, cli_addr;
+    int n;
 
-	// initialize
-	if (WSAStartup(MAKEWORD(2, 0), &wsa_data) != 0) {
-		std::cerr << "Initializing Winsock(WSAStartup) was failed." << std::endl;
-	}
-	
-	int src_socket;
+    // create socket
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("ERROR opening socket");
+        exit(1);
+    }
 
-	struct sockaddr_in src_addr;
-	memset(&src_addr, 0, sizeof(src_addr));
-	src_addr.sin_port = htons(port_number);
-	src_addr.sin_family = AF_INET;
-	src_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	
-	// AF_INET		: IPv4 IP
-	// SOCK_STREAM	: TCP
-	src_socket = socket(AF_INET, SOCK_STREAM, 0);
-	
-	bind(src_socket, (struct sockaddr *) &src_addr, sizeof(src_addr));
-	
-	int dst_socket;
-	struct sockaddr_in dst_addr;
-	int dst_addr_size = sizeof(dst_addr);
-	
+    // assign address
+    memset((char *)&serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(PORT);
+    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        perror("ERROR on binding");
+        exit(1);
+    }
 	std::cout << "socket was created." << std::endl;
-	
-	listen(src_socket, 1);
-	
+
 	char recv_buf[BUFFER_LENGTH];
 	char send_buf[BUFFER_LENGTH];
 	char buffer[HEADER_LENGTH];
-	//char msg[256];
 	
 
 #if ENTRIG == 1
@@ -690,36 +697,50 @@ int main(int argc, char *argv[]) {
 
 	while (1) {
 
-		std::cout << "waiting for connection..., port: " << port_number << std::endl;
+		std::cout << "waiting for connection..., port: " << PORT << std::endl;
 
-		// クライアントからの接続を受信する
-		dst_socket = accept(src_socket, (struct sockaddr *) &dst_addr, &dst_addr_size);
+		listen(sockfd, 5);
+		clilen = sizeof(cli_addr);
+		new_sockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
+		if (new_sockfd < 0) {
+			perror("ERROR on accept");
+			break;
+			//exit(1);
+		}
 
 		std::cout << "connected." << std::endl;
 
-		// 接続後の処理
 		while (1) {
 
-			int status;
+			//int status;
 
 			// == Recieve ==
-
-			int recv1_result = recv(dst_socket, recv_buf, HEADER_LENGTH, 0);
-			if (recv1_result == 0 || recv1_result == -1) {
-				status = closesocket(dst_socket); break;
+			memset(recv_buf, 0, BUFFER_LENGTH);
+			n = recv(new_sockfd, recv_buf, BUFFER_LENGTH, 0);
+			if (n < 0) {
+				perror("ERROR reading from socket");
+				break;
+				//exit(1);
 			}
+			
 
 			// convert little endian data to int
 			unsigned int length;
 			std::memcpy(&length, recv_buf, sizeof(unsigned int));
 			
+			if (length == 0){
+				break;
+			}
 			std::cout << "recieved length : " << length << std::endl;
 
-			
-			recv1_result = recv(dst_socket, recv_buf, length, 0);
-			if (recv1_result == 0 || recv1_result == -1) {
-				status = closesocket(dst_socket); break;
+			memset(recv_buf, 0, length);
+			n = recv(new_sockfd, recv_buf, length, 0);
+			if (n < 0) {
+				perror("ERROR reading from socket");
+				break;
+				//exit(1);
 			}
+
 			recv_buf[length] = 0;
 			//json json_data = json::parse(recv_buf);
 			//td::cout << json_data << std::endl;
@@ -754,8 +775,22 @@ int main(int argc, char *argv[]) {
 			
 			intToCharArray(buffer, s.size());
 
+			n = send(new_sockfd, buffer, HEADER_LENGTH, 0);
+			if (n < 0) {
+				perror("ERROR writing to socket");
+				break;
+				//exit(1);
+			}
+			n = send(new_sockfd, s.c_str(), s.size(), 0);
+			if (n < 0) {
+				perror("ERROR writing to socket");
+				break;
+				//exit(1);
+			}
+			/*
 			send(dst_socket, buffer, HEADER_LENGTH, 0);
 			send(dst_socket, s.c_str(), s.size(), 0);
+			*/
 			
 			// == Send end //
 			
@@ -767,8 +802,10 @@ int main(int argc, char *argv[]) {
 	}
 	
 	// WinSockの終了処理
-	WSACleanup();
+	//WSACleanup();
 
+    close(new_sockfd);
+    close(sockfd);
 
 	return 0;
 }
