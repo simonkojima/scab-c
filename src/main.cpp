@@ -612,6 +612,7 @@ void play(nlohmann::json json_data, AudioHandler* audio_handler){
 # if TRIG_DEV == 2
 			mrk = std::to_string(trig);
 			outlet->push_sample(&mrk);
+			std::cout << "LSL Marker was Sent: " << mrk << std::endl;
 #endif
 			trig = 0;
 			data.current_trig = 0;
