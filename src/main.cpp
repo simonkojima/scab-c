@@ -38,6 +38,9 @@
 
 //#define ENTRIG 1
 //#define TRIG_DEV 0
+//
+
+//#define VERSION ""
 
 #if ENTRIG == 1
 #if TRIG_DEV == 0
@@ -611,7 +614,7 @@ void play(nlohmann::json json_data, AudioHandler* audio_handler){
 			trig = 0;
 			data.current_trig = 0;
 			//QueryPerformanceCounterSleep(5, clock);
-			chrono_sleep(5);
+			chrono_sleep(DURATION_MARKER);
 #if TRIG_DEV == 0
 			DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
 #endif
@@ -625,7 +628,7 @@ void play(nlohmann::json json_data, AudioHandler* audio_handler){
 	}
 
 	//QueryPerformanceCounterSleep(1000, clock);
-	chrono_sleep(1000);
+	chrono_sleep(SLEEP_AFTER_SEQUENCE);
 
 #if ENTRIG == 1
 	trig = 0;
@@ -653,14 +656,20 @@ void play(nlohmann::json json_data, AudioHandler* audio_handler){
 
 int main(int argc, char *argv[]) {
 	
-    int port = 7400;
-    int length_header = 64;
-    int length_chunk = 4096;
+    int port = DEFAULT_PORT;
+    int length_header = DEFAULT_LENGTH_HEADER;
+    int length_chunk = DEFAULT_LENGTH_CHUNK;
 
     if (argc == 1) {
-        port = 7400;
     } else if (argc == 2) {
-        port = std::atoi(argv[1]);
+		std::string arg = argv[1];
+		if (arg == "--version") {
+			std::cout << "scab-c v" << VERSION << std::endl;
+			std::cout << "Please see details in https://github.com/simonkojima/scab-c" << std::endl;
+			exit(0);
+		} else {
+        	port = std::atoi(argv[1]);
+		}
     } else if (argc == 4) {
         port = std::atoi(argv[1]);
         length_header = std::atoi(argv[2]);

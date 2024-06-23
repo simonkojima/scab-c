@@ -1,6 +1,13 @@
 #ifndef ICOM_H
 #define ICOM_H
 
+#define VERSION "2.0.0dev1"
+#define DURATION_MARKER 5
+#define SLEEP_AFTER_SEQUENCE 1000
+#define DEFAULT_PORT 49152
+#define DEFAULT_LENGTH_HEADER 64
+#define DEFAULT_LENGTH_CHUNK 4096
+
 #include <netinet/in.h>
 #include <string>
 //#include <sys/socket.h>
