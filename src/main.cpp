@@ -20,11 +20,12 @@
 #include "dr_wav.h"
 
 #include <nlohmann/json.hpp>
-using json = nlohmann::json;
+#include <icom.hpp>
+//using json = nlohmann::json;
 
-#define PORT 49152
-#define HEADER_LENGTH 64
-#define BUFFER_LENGTH 122880
+//#define PORT 49152
+//#define HEADER_LENGTH 64
+//#define BUFFER_LENGTH 122880
 
 //#define ENTRIG
 //#define TRIG_DEV
@@ -83,19 +84,6 @@ static int dsp(const void *inputBuffer,
 	return 0;
 }
 
-int intToCharArray(char* buffer, int in){
-	// for little endian
-
-	std::bitset<HEADER_LENGTH> data_bit(in);
-	int cnt = 0;
-	for (int i = (HEADER_LENGTH-1); i >= 0; i--){
-		std::bitset<HEADER_LENGTH> val = data_bit >> (i*8);
-		val &= 0xff;
-		buffer[i] = val.to_ulong();
-	}
-	return 0;
-}
-
 void add_stim(float* y, float* stim, int N) {
 	for (int i = 0; i < N; i++) {
 		*(y + i) += *(stim + i);
@@ -132,7 +120,7 @@ public:
 	~AudioHandler();
 	void load_csv(const char* filename, int Fs);
 	void gen_array_csv(float** tones, float* len_tones);
-	void gen_array_json(json sequence, float**tones, float* len_tones);
+	void gen_array_json(nlohmann::json sequence, float**tones, float* len_tones);
 	void set_params(int Fs, int n_ch, int n_total_stims, int frames_per_buffer);
 	int n_ch;
 	int Fs;
@@ -196,7 +184,7 @@ void AudioHandler::load_csv(const char* filename, int Fs) {
 	
 }
 
-void AudioHandler::gen_array_json(json sequence, float**tones, float* len_tones){
+void AudioHandler::gen_array_json(nlohmann::json sequence, float**tones, float* len_tones){
 	float* t = new float[this->N];
 	int* ch = new int[this->N];
 	int* stim = new int[this->N];
@@ -357,7 +345,7 @@ void AudioHandler::gen_array_csv(float** tones, float* len_tones) {
 	this->length = idx;
 }
 
-void sleep(int time_millisec){
+void chrono_sleep(int time_millisec){
 	int64_t time_nanosec = (int64_t) time_millisec*1000000.0; // convert from millisec to nanosec
 	int64_t start, end;
     start = std::chrono::nanoseconds(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -385,7 +373,7 @@ LARGE_INTEGER getQueryPerformanceCounter(LARGE_INTEGER* now) {
 }
 */
 
-void prepare(json json_data, AudioHandler* audio_handler){
+void prepare(nlohmann::json json_data, AudioHandler* audio_handler){
 
 	//-----------------------------------------------------------
 	// read wav file
@@ -397,8 +385,8 @@ void prepare(json json_data, AudioHandler* audio_handler){
 	unsigned int frames_per_buffer;
 	unsigned int n_total_stims;
 	unsigned int n_stim;
-	json files;	
-	json sequence;
+	nlohmann::json files;	
+	nlohmann::json sequence;
 	
 	n_channels = json_data["n_channels"];
 	sampleRate = json_data["sample_rate"];
@@ -433,17 +421,33 @@ void prepare(json json_data, AudioHandler* audio_handler){
 	for (int i = 0; i < n_stim; i++) {
 		strcpy(filename[i], files[i].get<std::string>().c_str());
 	}
+	
+	for (int i = 0; i < n_stim; i++) {
+		std::ifstream file(filename[i]);
+		if (file.good() == 0){ 
+			std::cerr << "The file '" << filename[i] << "' was not found." << std::endl;
+			exit(1);
+		}
+	}
 
 	unsigned int wav_n_channels;
 	unsigned int wav_sampleRate;
 	for (int i = 0; i < n_stim; i++) {
-		cout << "filename " << i << " : " << filename[i] << endl;
+		std::cout << "filename " << i << " : " << filename[i] << std::endl;
 		wav_data[i] = drwav_open_file_and_read_pcm_frames_f32(filename[i], &wav_n_channels, &wav_sampleRate, &n_samples[i], NULL);
 	}
 
 	for (int i = 0; i < n_stim; i++){
 		len_tones[i] = (float)n_samples[i] / sampleRate;
 	}
+	
+	std::cout << "n_samples: " << n_samples[0] << std::endl;
+	
+
+	for (int i = 0; i < n_samples[0]; i++) {
+		std::cout << wav_data[0][i] << "";
+	}
+	std::cout << std::endl;
 
 	//AudioHandler audio_handler;
 	
@@ -455,9 +459,9 @@ void prepare(json json_data, AudioHandler* audio_handler){
 
 //lsl::stream_outlet outlet(info);
 #if ENTRIG == 1 && TRIG_DEV == 2
-void play(json json_data, AudioHandler* audio_handler, lsl::stream_outlet* outlet){
+void play(nlohmann::json json_data, AudioHandler* audio_handler, lsl::stream_outlet* outlet){
 #else
-void play(json json_data, AudioHandler* audio_handler){
+void play(nlohmann::json json_data, AudioHandler* audio_handler){
 #endif
 	
 	std::cout << "play was called" << std::endl;
@@ -584,7 +588,7 @@ void play(json json_data, AudioHandler* audio_handler){
 	//-----------------------------------------------------------
 	//QueryPerformanceCounterSleep(1000, clock);
 	
-	sleep(1000);
+	//chrono_sleep(1000);
 
 	//-----------------------------------------------------------
 	Pa_StartStream(stream);  // Start Port Audio
@@ -626,7 +630,7 @@ void play(json json_data, AudioHandler* audio_handler){
 	}
 
 	//QueryPerformanceCounterSleep(1000, clock);
-	sleep(1000);
+	chrono_sleep(1000);
 
 #if ENTRIG == 1
 	trig = 0;
@@ -654,32 +658,27 @@ void play(json json_data, AudioHandler* audio_handler){
 
 int main(int argc, char *argv[]) {
 	
-    int sockfd, new_sockfd;
-    socklen_t clilen;
-    struct sockaddr_in serv_addr, cli_addr;
-    int n;
+    int port = 7400;
+    int length_header = 64;
+    int length_chunk = 4096;
 
-    // create socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        perror("ERROR opening socket");
-        exit(1);
+    if (argc == 1) {
+        port = 7400;
+    } else if (argc == 2) {
+        port = std::atoi(argv[1]);
+    } else if (argc == 4) {
+        port = std::atoi(argv[1]);
+        length_header = std::atoi(argv[2]);
+        length_chunk = std::atoi(argv[3]);
     }
-
-    // assign address
-    memset((char *)&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(PORT);
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        perror("ERROR on binding");
-        exit(1);
-    }
-	std::cout << "socket was created." << std::endl;
-
-	char recv_buf[BUFFER_LENGTH];
-	char send_buf[BUFFER_LENGTH];
-	char buffer[HEADER_LENGTH];
+	
+	std::cout << "port: " << port << std::endl;
+	std::cout << "length_header: " << length_header << std::endl;
+	std::cout << "length_chunk: " << length_chunk << std::endl;
+		
+    icom::server server(port, length_header, length_chunk);
+    server.start();
+	
 	
 
 #if ENTRIG == 1
@@ -697,57 +696,25 @@ int main(int argc, char *argv[]) {
 
 	while (1) {
 
-		std::cout << "waiting for connection..., port: " << PORT << std::endl;
-
-		listen(sockfd, 5);
-		clilen = sizeof(cli_addr);
-		new_sockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
-		if (new_sockfd < 0) {
-			perror("ERROR on accept");
-			break;
-			//exit(1);
+		std::cout << "waiting for connection..., port: " << port << std::endl;
+		
+		while (server.get_n_conns() == 0){
+			// wait for connection
 		}
 
 		std::cout << "connected." << std::endl;
 
 		while (1) {
-
-			//int status;
-
-			// == Recieve ==
-			memset(recv_buf, 0, BUFFER_LENGTH);
-			n = recv(new_sockfd, recv_buf, BUFFER_LENGTH, 0);
-			if (n < 0) {
-				perror("ERROR reading from socket");
-				break;
-				//exit(1);
-			}
-			
-
-			// convert little endian data to int
-			unsigned int length;
-			std::memcpy(&length, recv_buf, sizeof(unsigned int));
-			
-			if (length == 0){
+			if (server.get_n_conns() > 1) {
+				std::cerr << "Error: The number of connections have to be 1." << std::endl;
+				std::cout << "Press Any Key to Continue..." << std::endl;
+				std::cin.get();
 				break;
 			}
-			std::cout << "recieved length : " << length << std::endl;
-
-			memset(recv_buf, 0, length);
-			n = recv(new_sockfd, recv_buf, length, 0);
-			if (n < 0) {
-				perror("ERROR reading from socket");
-				break;
-				//exit(1);
-			}
-
-			recv_buf[length] = 0;
-			//json json_data = json::parse(recv_buf);
-			//td::cout << json_data << std::endl;
 			
-			std::cout << recv_buf << std::endl;
+			char** data = server.recv();
 
-			json json_data = json::parse(recv_buf);
+			nlohmann::json json_data = nlohmann::json::parse(data[0]);
 			std::cout << "recieved : " << json_data << std::endl;
 
 			// == Recieve end ==
@@ -767,45 +734,22 @@ int main(int argc, char *argv[]) {
 
 			
 			// == Send ==
-			json j;
+			nlohmann::json j;
 			j["type"] = "info";
 			j["info"] = "playback-finish";
 			
 			std::string s = j.dump();
+			server.send(s);
 			
-			intToCharArray(buffer, s.size());
-
-			n = send(new_sockfd, buffer, HEADER_LENGTH, 0);
-			if (n < 0) {
-				perror("ERROR writing to socket");
-				break;
-				//exit(1);
-			}
-			n = send(new_sockfd, s.c_str(), s.size(), 0);
-			if (n < 0) {
-				perror("ERROR writing to socket");
-				break;
-				//exit(1);
-			}
-			/*
-			send(dst_socket, buffer, HEADER_LENGTH, 0);
-			send(dst_socket, s.c_str(), s.size(), 0);
-			*/
 			
 			// == Send end //
 			
 			std::cout << "playback finish" << std::endl;
 
-			//strcpy(msg, "end");
-			//send(dst_socket, msg, sizeof(char) * 256, 0);
 		}
 	}
 	
-	// WinSockの終了処理
-	//WSACleanup();
-
-    close(new_sockfd);
-    close(sockfd);
+	server.close();
 
 	return 0;
 }
