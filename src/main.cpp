@@ -442,12 +442,6 @@ void prepare(nlohmann::json json_data, AudioHandler* audio_handler){
 	}
 	
 	std::cout << "n_samples: " << n_samples[0] << std::endl;
-	
-
-	for (int i = 0; i < n_samples[0]; i++) {
-		std::cout << wav_data[0][i] << "";
-	}
-	std::cout << std::endl;
 
 	//AudioHandler audio_handler;
 	
@@ -612,12 +606,12 @@ void play(nlohmann::json json_data, AudioHandler* audio_handler){
 # if TRIG_DEV == 2
 			mrk = std::to_string(trig);
 			outlet->push_sample(&mrk);
-			std::cout << "LSL Marker was Sent: " << mrk << std::endl;
+			//std::cout << "LSL Marker was Sent: " << mrk << std::endl;
 #endif
 			trig = 0;
 			data.current_trig = 0;
 			//QueryPerformanceCounterSleep(5, clock);
-			sleep(5);
+			chrono_sleep(5);
 #if TRIG_DEV == 0
 			DAQmxWriteDigitalU8(taskHandle, 1, 1, 10.0, DAQmx_Val_GroupByChannel, &trig, &written, NULL);
 #endif
@@ -716,7 +710,7 @@ int main(int argc, char *argv[]) {
 			char** data = server.recv();
 
 			nlohmann::json json_data = nlohmann::json::parse(data[0]);
-			std::cout << "recieved : " << json_data << std::endl;
+			std::cout << "Recieved : " << json_data << std::endl;
 
 			// == Recieve end ==
 

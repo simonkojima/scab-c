@@ -25,7 +25,7 @@ notrigger:
 	$(CC) $(SRCS) $(CFLAGS) $(INCDIR) $(LIBDIR) $(LIBS) -o ../build/macos/scab-notrigger $(MACROS) -DENTRIG=0
 
 lsl:
-	$(CC) $(SRCS) $(CFLAGS) $(INCDIR) $(LIBDIR) $(LIBS) -llsl -o ../build/scab-lsl $(MACROS) -DENTRIG=1 -DTRIG_DEV=2
+	$(CC) $(SRCS) $(CFLAGS) $(INCDIR) $(LIBDIR) $(LIBS) -llsl -o ../build/macos/scab-lsl $(MACROS) -DENTRIG=1 -DTRIG_DEV=2
 
 sock:
 	$(CC) test-socket.cpp -o ./socket
