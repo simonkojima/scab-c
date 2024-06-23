@@ -33,7 +33,7 @@
 #define SLEEP_AFTER_SEQUENCE 1000
 #define SLEEP_ICOM_THREAD 100
 
-#define LENGTH_ICOM_DATA 1000000
+#define LENGTH_DATA 1000000
 //using json = nlohmann::json;
 
 //#define PORT 49152
@@ -391,17 +391,16 @@ LARGE_INTEGER getQueryPerformanceCounter(LARGE_INTEGER* now) {
 }
 */
 
-void icom_handler(char* data, icom::server* server, padata* portaudio_data, AudioHandler* audio_handler) {
-	//std::cout << "icom_hander was started" << std::endl;
+void icom_handler(char** data, icom::server* server, padata* portaudio_data, AudioHandler* audio_handler) {
 	portaudio_data->playing = 1;
 	while (portaudio_data->playing == 1) {
-		int n = server->recv_nonblock(data, LENGTH_ICOM_DATA);
-		if (n == -1) {
+		int* n = server->recv_nonblock(data);
+		if (n[server->get_n_conns()-1] == -1) {
 			//std::cout << "icom_handler no data" << std::endl;
 			chrono_sleep(SLEEP_ICOM_THREAD);
 			continue;
 		}
-		nlohmann::json json_data = nlohmann::json::parse(data);
+		nlohmann::json json_data = nlohmann::json::parse(data[server->get_n_conns()-1]);
 		if (json_data["type"] == "cmd") {
 			if (json_data["cmd"] == "stop") {
 				std::cout << "stop was received" << std::endl;
@@ -724,10 +723,7 @@ int main(int argc, char *argv[]) {
 		
     icom::server server(port, length_header, length_chunk);
     server.start();
-	int n;
 	
-	char* icom_data = new char[LENGTH_ICOM_DATA];
-	std::memset(icom_data, 0, LENGTH_ICOM_DATA);
 	
 
 #if ENTRIG == 1
@@ -743,24 +739,42 @@ int main(int argc, char *argv[]) {
 #endif
 #endif
 
-
 	while (1) {
 
-		//std::cout << "waiting for connection..., port: " << port << std::endl;
+		std::cout << "waiting for connection..., port: " << port << std::endl;
 		server.wait_for_connection();
 		std::cout << "connected." << std::endl;
 		
+		char* data = new char[LENGTH_DATA];
+		data = new char[LENGTH_DATA];
+		std::memset(data, 0, LENGTH_DATA);
 
 		while (1) {
 			std::cout << "waiting for next cmd"	<< std::endl;
-			n = server.recv(icom_data, LENGTH_ICOM_DATA);
-			if (n < 1) {
+			int *n = new int[128];
+			std::memset(n, 0, 128);
+
+			try {
+				n = server.recv(data);
+				for (int i = 0; i < server.get_n_conns(); i ++) {
+					std::cout << n[i] << " ";
+				}
+				std::cout << std::endl;
+			} catch (const char* message) {
+				std::cerr << message << std::endl;
+			} catch (...) {
 				break;
 			}
-			nlohmann::json json_data = nlohmann::json::parse(icom_data);
+			
+			if (n[server.get_n_conns()-1] < 1) {
+				break;	
+			}
+
+			nlohmann::json json_data = nlohmann::json::parse(data[server.get_n_conns()-1]);
 			std::cout << "Recieved : " << json_data << std::endl;
 
 			// == Recieve end ==
+
 
 			AudioHandler* audio_handler;
 			audio_handler = new AudioHandler[1];
@@ -769,7 +783,7 @@ int main(int argc, char *argv[]) {
 			
 			padata portaudio_data;
 			
-			std::thread icom_handler_thread(icom_handler, icom_data, &server, &portaudio_data, audio_handler);
+			std::thread icom_handler_thread(icom_handler, data, &server, &portaudio_data, audio_handler);
         	icom_handler_thread.detach();
 
 
@@ -780,16 +794,25 @@ int main(int argc, char *argv[]) {
 			#endif
 			
 			std::cout << "stopped. from main function" << std::endl;
+
 			
 			// == Send ==
 			nlohmann::json j;
 			j["type"] = "info";
 			j["info"] = "playback-finish";
 			
+			try {
+				
 			std::string s = j.dump();
 			std::cout << "before send playback finish info" << std::endl;
 			server.send(s);
 			std::cout << "sent" << std::endl;
+			} catch (const char* message) {
+				std::cerr << message << std::endl;
+			} catch (...) {
+				std::cerr << "Unknown Error" << std::endl;
+			}
+			
 			
 			// == Send end //
 			
